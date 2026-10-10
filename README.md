@@ -1,5 +1,23 @@
 # GitHub panel
 
+## Optional workflow card adapters (not connected to the signal panel)
+
+`archive.mjs` exports explicit issue/PR lifecycle policies and a server-side issue
+closure handler. It reads the current issue, closes once using the official GitHub
+API, then verifies the same issue is closed. Already closed is idempotent; a lost
+write response is unknown and is never automatically retried. PR resources are
+rejected by the issue handler. No provider credentials reach the browser.
+
+`interactions.mjs` declares a disabled-by-default PR decision (merge, close without
+merging, hold) and builds a native choice-card request only after explicit opt-in.
+It does not execute the answer or grant repository permission. PR mutation still
+requires a separate authenticated adapter with current head/check fences.
+
+These modules do not run from inbox ingestion or public static routes. Signed
+host lifecycle delivery, current authorization, feature settings, durable
+receipts and real-provider acceptance remain pending. Existing panel permissions
+do not authorize mutations. Restoring an archived card does not reopen an issue.
+
 Standalone third party Langboard panel service. Node 22 or newer; no core checkout, React installation, copied theme, or browser provider credentials. The vendored npm SDK package version 0.2.0, including its signal request channel, is the only dependency.
 
 ```sh
