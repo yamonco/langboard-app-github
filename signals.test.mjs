@@ -12,3 +12,12 @@ test('repository mismatch and oversize responses stop before reading checks',asy
  const large=githubApi({token:'secret'},async()=>new Response('x'.repeat(1048577)));await assert.rejects(large.readCheckRun(scope),/byte limit/);
  for(const bad of ['a'.repeat(40)+'suffix','prefix'+'a'.repeat(64)]) assert.throws(()=>normalizeCheck({...row,head_sha:bad},scope));
 });
+
+test('invalid publication receipt cannot report check delivery success or repeat provider reads',async()=>{
+ let reads=0,sends=0,saved;
+ await assert.rejects(observeCheck({api:{readCheckRun:async()=>{reads++;return row;}},scope,
+  host:{origin:'https://host.example',token:'lbac_'+'x'.repeat(43)},saveEnvelope:async value=>{saved=value;}},
+  async()=>{sends++;return Response.json({accepted:true});}),/outcome unknown: invalid receipt/);
+ assert.equal(reads,1);assert.equal(sends,1);assert.equal(saved.external_id,'42');
+ assert.equal(saved.commit_sha,row.head_sha);assert.equal(saved.output,undefined);
+});

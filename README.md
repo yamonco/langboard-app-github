@@ -44,7 +44,7 @@ Instance declaration approval, connection/resource onboarding, deployment
 configuration and real-provider acceptance remain pending. Existing panel permissions
 do not authorize mutations. Restoring an archived card does not reopen an issue.
 
-Standalone third party Langboard panel service. Node 22.13 or newer; no core checkout, React installation, copied theme, or browser provider credentials. The vendored npm SDK package version 0.2.3, including its signal request channel, provides the browser bridge. The separate vendored @langboard/app-server 0.1.1 provides server-only archive processing and is never exposed as a browser asset.
+Standalone third party Langboard panel service. Node 22.13 or newer; no core checkout, React installation, copied theme, or browser provider credentials. The vendored npm SDK package version 0.2.3, including its signal request channel, provides the browser bridge. The separate vendored @langboard/app-server 0.1.2 provides server-only archive processing and is never exposed as a browser asset.
 
 ```sh
 npm ci
@@ -111,9 +111,13 @@ histories are retained and never silently re-keyed or deduplicated into it.
 `--publish-signals` independently offers schema 2 app version 0.2.1. It requests
 signal publication consent but no card creation unless `--workflow-cards` is also
 selected. The panel selects `github` or `github-panel` with separate SDK-owned
-source lifetimes. SDK packages are pinned at panel 0.2.3 and server 0.1.1.
+source lifetimes. SDK packages are pinned at panel 0.2.3 and server 0.1.2.
 The flag offers a contract, not a running worker, credentials or consent.
 
 Tests exercise local HTTP and provider/host doubles. Actual GitHub credentials,
 native persistence readback, webhook ingress migration, durable service deployment
 and browser acceptance remain gates before any host provider path can be removed.
+
+Signal publication requires a native signal_uid and boolean duplicate receipt.
+An HTTP success without that receipt is an unknown outcome; preserve the saved
+envelope and reconcile before explicit replay. No automatic retry is performed.
