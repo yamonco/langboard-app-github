@@ -13,9 +13,24 @@ merging, hold) and builds a native choice-card request only after explicit opt-i
 It does not execute the answer or grant repository permission. PR mutation still
 requires a separate authenticated adapter with current head/check fences.
 
-These modules do not run from inbox ingestion or public static routes. Signed
-host lifecycle delivery, current authorization, feature settings, durable
-receipts and real-provider acceptance remain pending. Existing panel permissions
+These modules do not run from inbox ingestion or public static routes.
+`archive-receiver.mjs` now provides a server-side receiver and `panelServer(config,
+{ receiveArchive })` optionally exposes `POST /events/archive`. The default CLI
+does not enable this endpoint. Before enabling it, supply an approved webhook
+secret, an `archiveStore` backed by a durable local file, a configured
+`archiveHost` with the owning connection credential, and a trusted `resolveIssue`
+mapping that explicitly enables each board/connection/issue. Event URLs are never
+used for credential routing. The receiver verifies exact signed bytes, checks the
+current host receipt, persists the claim before GitHub access and stores the exact
+outcome report. Duplicate deliveries reuse that report without another provider
+write. A claim without a report remains unresolved and requires operator
+reconciliation; it never causes an automatic repeat mutation. Node's built-in
+SQLite is used only for this standalone app's local operation ledger; it does
+not select or change Langboard's database backend. Use Node 22.13 or newer for
+this optional adapter; SQLite remains experimental in Node 22.
+
+Instance declaration approval, connection/resource onboarding, deployment
+configuration and real-provider acceptance remain pending. Existing panel permissions
 do not authorize mutations. Restoring an archived card does not reopen an issue.
 
 Standalone third party Langboard panel service. Node 22 or newer; no core checkout, React installation, copied theme, or browser provider credentials. The vendored npm SDK package version 0.2.0, including its signal request channel, is the only dependency.
@@ -27,7 +42,7 @@ HOST_ORIGIN=https://board.example PUBLIC_URL=https://panel.example npm run manif
 npm test
 ```
 
-`HOST_ORIGIN` is the exact approved host origin. `PUBLIC_URL` is the deployed HTTPS panel origin; HTTPS termination may be handled by a reverse proxy. `HOST` defaults to loopback; set `HOST=0.0.0.0` in a container. `PORT` defaults to 8780. Local development defaults to host `http://127.0.0.1:5173` and declaration URL `https://panel.example`; configure a real public URL before approval. The manifest is also available at `/manifest.json`. No provider credentials or authenticated API endpoints are served here.
+`HOST_ORIGIN` is the exact approved host origin. `PUBLIC_URL` is the deployed HTTPS panel origin; HTTPS termination may be handled by a reverse proxy. `HOST` defaults to loopback; set `HOST=0.0.0.0` in a container. `PORT` defaults to 8780. Local development defaults to host `http://127.0.0.1:5173` and declaration URL `https://panel.example`; configure a real public URL before approval. The manifest is also available at `/manifest.json`. The default CLI serves no provider credentials or authenticated API endpoints.
 
 Register the generated external declaration (`github-panel`) for instance approval, then grant board panel rendering and explicitly check the separate signal read consent checkbox. Rendering consent alone cannot read signals. This companion panel requires an existing authorized provider connection, eligible board resource bindings and the native provider read/resource grants, in addition to the external panel read consent. External panel consent never creates provider authority. Provider onboarding remains a host responsibility. The host must support `session.request('signals.list', {provider: 'github', after?: cursor})` and supply its actual React, Button, Badge, Input and mount widget exports. The SDK imports from `/sdk/index.mjs`; the server exposes the installed package file with public module CORS for an opaque iframe. Host styling and theme follow automatically through the SDK.
 
