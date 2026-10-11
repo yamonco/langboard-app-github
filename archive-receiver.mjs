@@ -64,6 +64,8 @@ export function archiveReceiver({ secret, store, host, resolveIssue, providerReq
         receipt.archive_policy?.action !== 'close_issue' || !Number.isSafeInteger(receipt.outcome_revision)) throw new Error('Current archive identity mismatch');
     const claim = store.claim(event.archive_uid, event);
     if (['applied', 'already_applied'].includes(receipt.state)) return { state: receipt.state, changed: false };
+    if (receipt.provider_report && !claim.report) return { state: receipt.state, changed: false };
+    if (receipt.state !== 'pending' && !claim.report) throw new Error('Archive reconciliation required');
     let report = claim.report;
     if (!claim.inserted && !report) return { state: 'processing', changed: false };
     if (!report) {
