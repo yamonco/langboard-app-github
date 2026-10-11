@@ -66,3 +66,24 @@ Public static assets permit CORS `*` without credentials. CSP frame ancestors is
 Local browser verification used the real compiled host widget module and opaque iframe lifecycle with disposable sample inbox records. It confirmed dark theme changes, filters, and denial clearing prior data; it did not exercise a deployed account or real provider ingestion.
 
 Panel declaration 0.1.1 explicitly limits signal_sources to github. Approve the newer declaration and review board signal consent again on SDK 0.2.20 hosts. The declaration neither grants provider account access nor installs an adapter. Inbox state remains independent from app-owned cards and HITL.
+
+
+## Serving an optional workflow declaration
+
+The default HTTP `/manifest.json` and `--manifest` output remain the read-only
+signal inbox profile. Use `--workflow-cards` for both generation and service
+startup when offering app-owned workflow cards:
+
+```sh
+npm run manifest --silent -- --workflow-cards > workflow-manifest.json
+npm start -- --workflow-cards
+```
+
+Programmatic callers use `panelServer(config, { workflowCards: true })`. The
+HTTP declaration is generated at startup from that same explicit profile.
+These flags offer capabilities for approval; they do not register an app,
+create a card, grant consent, connect a provider or activate external actions.
+
+GitHub may additionally use `--interactions` together with `--workflow-cards`
+for both generation and startup. The PR interaction declaration remains
+optional and disabled by default; declaring choices does not execute them.
