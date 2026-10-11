@@ -57,7 +57,7 @@ import { createPanel } from './public/view.mjs';
 test('render uses host widgets, Korean labels and readonly signal evidence', () => {
   const row = {provider, signal_uid: '1', resource_name: 'demo', external_id: '42', event_type: 'observed', outcome: 'failed', occurred_at: '2026-10-10', time_basis: 'observation'};
   let index = 0;
-  const initial = [{items:[row], nextCursor:'Cursor1', busy:false, error:''}, '', ''];
+  const initial = [{items:[row], nextCursor:'Cursor1', busy:false, error:'', source:provider}, '', '', provider];
   const React = {
     createElement: (type, props, ...children) => ({type, props, children}),
     useState: () => [initial[index++], () => {}],
@@ -86,4 +86,11 @@ test('HTTP manifest preserves the explicit workflow profile', async t => {
   assert.deepEqual(manifest, declaration(config, profile));
   assert.equal(manifest.schema_version, 2);
   assert.ok(manifest.capabilities.includes('cards.create'));
+});
+
+test('publishing HTTP profile offers its own source without card authority',async t=>{
+ const server=panelServer(configuration(),{publishSignals:true});await new Promise(r=>server.listen(0,'127.0.0.1',r));t.after(()=>new Promise(r=>server.close(r)));
+ const url=`http://127.0.0.1:${server.address().port}`;
+ const manifest=await(await fetch(url+'/manifest.json')).json();const module=await(await fetch(url+'/config.mjs')).text();const config=JSON.parse(module.slice('export default '.length,-1));
+ assert.deepEqual(config.signalSources,['github','github-panel']);assert.deepEqual(config.signalSources,manifest.signal_sources);assert.equal(manifest.capabilities.includes('cards.create'),false);
 });

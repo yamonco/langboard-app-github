@@ -1,0 +1,14 @@
+import test from 'node:test'; import assert from 'node:assert/strict';
+import {githubApi} from './provider-api.mjs'; import {normalizeCheck,observeCheck,signalPolicy} from './signals.mjs'; import {configuration,declaration} from './server.mjs';
+const scope={owner:'octo',repository:'demo',checkRunId:'42',externalId:'123',boardUID:'12345678901',resourceUID:'12345678902',appRevision:'a'.repeat(64),bindingRevision:'b'.repeat(64)};
+const row={id:42,status:'completed',conclusion:'success',head_sha:'a'.repeat(40),completed_at:'2026-10-11T01:00:00Z',output:{summary:'secret'}};
+test('official checks read is bounded to configured repository and no writes',async()=>{const calls=[];const api=githubApi({token:'secret'},async(url,init)=>{calls.push([url,init]);return Response.json(calls.length===1?{id:123,full_name:'octo/demo'}:row)});assert.deepEqual(await api.readCheckRun(scope),row);assert.match(calls[1][0],/repos\/octo\/demo\/check-runs\/42$/);assert.ok(calls.every(call=>call[1].method==='GET'));});
+test('normalization whitelists check evidence and preserves commit',()=>{const out=normalizeCheck(row,scope);assert.equal(out.outcome,'success');assert.equal(out.event_type,'check.completed');assert.equal(out.commit_sha,'a'.repeat(40));assert.equal(out.output,undefined);assert.equal(normalizeCheck({...row,output:{summary:'other'}},scope).event_id,out.event_id);assert.throws(()=>normalizeCheck({...row,head_sha:'bad'},scope));assert.throws(()=>normalizeCheck({...row,status:'queued'},scope));});
+test('persist before publication and no retry on unknown response',async()=>{let saved=0,sent=0;await assert.rejects(observeCheck({api:{readCheckRun:async()=>row},scope,host:{origin:'https://host.example',token:'lbac_'+'x'.repeat(43)},saveEnvelope:async()=>{saved++}},async()=>{sent++;assert.equal(saved,1);throw new Error('lost')}),/lost/);assert.equal(saved,1);assert.equal(sent,1)});
+test('publish profile is opt-in and independent from cards',()=>{const m=declaration(configuration(),{publishSignals:true});assert.ok(m.capabilities.includes('signals.publish'));assert.deepEqual(m.signal_sources,['github','github-panel']);assert.equal(m.card_lifecycle,undefined);assert.equal(signalPolicy.resource_types[0],'repository')});
+test('repository mismatch and oversize responses stop before reading checks',async()=>{
+ let calls=0;const api=githubApi({token:'secret'},async()=>{calls++;return Response.json({id:999,full_name:'octo/demo'})});
+ await assert.rejects(api.readCheckRun(scope),/repository identity/);assert.equal(calls,1);
+ const large=githubApi({token:'secret'},async()=>new Response('x'.repeat(1048577)));await assert.rejects(large.readCheckRun(scope),/byte limit/);
+ for(const bad of ['a'.repeat(40)+'suffix','prefix'+'a'.repeat(64)]) assert.throws(()=>normalizeCheck({...row,head_sha:bad},scope));
+});
