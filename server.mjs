@@ -12,7 +12,7 @@ export function configuration(env = process.env) {
   return { hostOrigin: host.origin, publicUrl: publicUrl.origin };
 }
 export function declaration(config) {
-  return { schema_version: 1, key: 'github-panel', version: '0.1.0', name: 'GitHub Panel', description: 'Checks and commit statuses from the authorized Langboard signal inbox.', capabilities: ['panels.render', 'signals.read'], resource_types: ['repository'], panel: { url: config.publicUrl + '/', name: 'GitHub', icon: 'github' } };
+  return { schema_version: 1, key: 'github-panel', version: '0.1.1', name: 'GitHub Panel', description: 'Checks and commit statuses from the authorized Langboard signal inbox.', capabilities: ['panels.render', 'signals.read'], signal_sources: ['github'], resource_types: ['repository'], panel: { url: config.publicUrl + '/', name: 'GitHub', icon: 'github' } };
 }
 export function panelServer(config = configuration()) {
   const paths = new Map([
