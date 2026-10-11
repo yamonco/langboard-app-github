@@ -3,6 +3,19 @@ import assert from 'node:assert/strict';
 import { panelServer, configuration, declaration } from './server.mjs';
 import { createInbox, visibleItems, provider } from './public/inbox.mjs';
 
+test('workflow and interactions declarations are explicit optional profiles', () => {
+  const config = configuration({ PUBLIC_URL: 'https://panel.example' });
+  assert.equal(declaration(config).card_lifecycle, undefined);
+  assert.equal(declaration(config).capabilities.includes('cards.create'), false);
+  const workflow = declaration(config, { workflowCards: true });
+  assert.equal(workflow.schema_version, 2);
+  assert.equal(workflow.card_lifecycle.issue.archive.default_enabled, false);
+  assert.equal(workflow.card_lifecycle.pull_request.archive.mode, 'retain');
+  assert.equal(workflow.card_interactions, undefined);
+  assert.equal(declaration(config, { workflowCards: true, interactions: true }).card_interactions.pull_request[0].default_enabled, false);
+  assert.throws(() => declaration(config, { interactions: true }));
+});
+
 test('public static routes, opaque iframe module CORS and declaration', async t => {
   const config = configuration({ HOST_ORIGIN: 'https://host.example', PUBLIC_URL: 'https://panel.example' });
   const server = panelServer(config); await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));

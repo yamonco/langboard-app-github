@@ -1,5 +1,16 @@
 # GitHub panel
 
+## Optional workflow declaration
+
+Generate a separately reviewed workflow profile with
+`node server.mjs --manifest --workflow-cards`; add `--interactions` to declare
+optional PR choice requests. The default manifest and `/manifest.json` remain
+read-only. The workflow profile uses schema v2, explicit issue/PR lifecycle
+policies and a data trust origin matching `PUBLIC_URL`. Instance approval,
+connection/resource onboarding and board capability grants are still required.
+Declaration does not start the receiver, create cards, enable archive sync or
+merge a PR. Archive synchronization and PR choices each require their own opt-in.
+
 ## Optional workflow card adapters (not connected to the signal panel)
 
 `archive.mjs` exports explicit issue/PR lifecycle policies and a server-side issue

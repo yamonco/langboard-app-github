@@ -1,3 +1,5 @@
+import { cardInteractions } from './interactions.mjs';
+import { cardLifecycle } from './archive.mjs';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -11,8 +13,17 @@ export function configuration(env = process.env) {
   if (publicUrl.protocol !== 'https:' || publicUrl.username || publicUrl.password || publicUrl.hash || publicUrl.search || publicUrl.pathname !== '/') throw new Error('PUBLIC_URL must be an HTTPS origin');
   return { hostOrigin: host.origin, publicUrl: publicUrl.origin };
 }
-export function declaration(config) {
-  return { schema_version: 1, key: 'github-panel', version: '0.1.1', name: 'GitHub Panel', description: 'Checks and commit statuses from the authorized Langboard signal inbox.', capabilities: ['panels.render', 'signals.read'], signal_sources: ['github'], resource_types: ['repository'], panel: { url: config.publicUrl + '/', name: 'GitHub', icon: 'github' } };
+export function declaration(config, { workflowCards = false, interactions = false } = {}) {
+  if (interactions && (!workflowCards || false)) throw new Error("Interactions require a supported workflow card profile");
+  const manifest = { schema_version: 1, key: 'github-panel', version: '0.1.1', name: 'GitHub Panel', description: 'Checks and commit statuses from the authorized Langboard signal inbox.', capabilities: ['panels.render', 'signals.read'], signal_sources: ['github'], resource_types: ['repository'], panel: { url: config.publicUrl + '/', name: 'GitHub', icon: 'github' } };
+  if (!workflowCards) return manifest;
+  return { ...manifest, schema_version: 2, version: '0.2.0',
+    capabilities: [...manifest.capabilities, 'cards.read', 'cards.create', 'events.receive', ...(interactions ? ['interactions.request'] : [])],
+    card_lifecycle: cardLifecycle,
+    ...(interactions ? { card_interactions: cardInteractions } : {}),
+    trust: { authentication_origins: [], mcp_origins: [], data_origins: [config.publicUrl] },
+  };
+
 }
 export function panelServer(config = configuration(), { receiveArchive } = {}) {
   const paths = new Map([
@@ -57,6 +68,6 @@ export function panelServer(config = configuration(), { receiveArchive } = {}) {
 }
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const config = configuration();
-  if (process.argv.includes('--manifest')) process.stdout.write(JSON.stringify(declaration(config), null, 2) + '\n');
+  if (process.argv.includes('--manifest')) process.stdout.write(JSON.stringify(declaration(config, { workflowCards: process.argv.includes("--workflow-cards"), interactions: process.argv.includes("--interactions") }), null, 2) + '\n');
   else panelServer(config).listen(Number(process.env.PORT || 8780), process.env.HOST || '127.0.0.1', () => console.log('GitHub panel listening'));
 }
