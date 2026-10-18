@@ -1,6 +1,50 @@
 # GitHub panel
 
-Standalone third party Langboard panel service. Node 22 or newer; no core checkout, React installation, copied theme, or browser provider credentials. The vendored npm SDK package version 0.2.0, including its signal request channel, is the only dependency.
+## Optional workflow declaration
+
+Generate a separately reviewed workflow profile with
+`node server.mjs --manifest --workflow-cards`; add `--interactions` to declare
+optional PR choice requests. The default manifest and `/manifest.json` remain
+read-only. The workflow profile uses schema v2, explicit issue/PR lifecycle
+policies and a data trust origin matching `PUBLIC_URL`. Instance approval,
+connection/resource onboarding and board capability grants are still required.
+Declaration does not start the receiver, create cards, enable archive sync or
+merge a PR. Archive synchronization and PR choices each require their own opt-in.
+
+## Optional workflow card adapters (not connected to the signal panel)
+
+`archive.mjs` exports explicit issue/PR lifecycle policies and a server-side issue
+closure handler. It reads the current issue, closes once using the official GitHub
+API, then verifies the same issue is closed. Already closed is idempotent; a lost
+write response is unknown and is never automatically retried. PR resources are
+rejected by the issue handler. No provider credentials reach the browser.
+
+`interactions.mjs` declares a disabled-by-default PR decision (merge, close without
+merging, hold) and builds a native choice-card request only after explicit opt-in.
+It does not execute the answer or grant repository permission. PR mutation still
+requires a separate authenticated adapter with current head/check fences.
+
+These modules do not run from inbox ingestion or public static routes.
+`archive-receiver.mjs` now provides a server-side receiver and `panelServer(config,
+{ receiveArchive })` optionally exposes `POST /events/archive`. The default CLI
+does not enable this endpoint. Before enabling it, supply an approved webhook
+secret, an `archiveStore` backed by a durable local file, a configured
+`archiveHost` with the owning connection credential, and a trusted `resolveIssue`
+mapping that explicitly enables each board/connection/issue. Event URLs are never
+used for credential routing. The receiver verifies exact signed bytes, checks the
+current host receipt, persists the claim before GitHub access and stores the exact
+outcome report. Duplicate deliveries reuse that report without another provider
+write. A claim without a report remains unresolved and requires operator
+reconciliation; it never causes an automatic repeat mutation. Node's built-in
+SQLite is used only for this standalone app's local operation ledger; it does
+not select or change Langboard's database backend. Use Node 22.13 or newer for
+this optional adapter; SQLite remains experimental in Node 22.
+
+Instance declaration approval, connection/resource onboarding, deployment
+configuration and real-provider acceptance remain pending. Existing panel permissions
+do not authorize mutations. Restoring an archived card does not reopen an issue.
+
+Standalone third party Langboard panel service. Node 22.13 or newer; no core checkout, React installation, copied theme, or browser provider credentials. The vendored npm SDK package version 0.2.3, including its signal request channel, provides the browser bridge. The separate vendored @langboard/app-server 0.1.2 provides server-only archive processing and is never exposed as a browser asset.
 
 ```sh
 npm ci
@@ -9,7 +53,7 @@ HOST_ORIGIN=https://board.example PUBLIC_URL=https://panel.example npm run manif
 npm test
 ```
 
-`HOST_ORIGIN` is the exact approved host origin. `PUBLIC_URL` is the deployed HTTPS panel origin; HTTPS termination may be handled by a reverse proxy. `HOST` defaults to loopback; set `HOST=0.0.0.0` in a container. `PORT` defaults to 8780. Local development defaults to host `http://127.0.0.1:5173` and declaration URL `https://panel.example`; configure a real public URL before approval. The manifest is also available at `/manifest.json`. No provider credentials or authenticated API endpoints are served here.
+`HOST_ORIGIN` is the exact approved host origin. `PUBLIC_URL` is the deployed HTTPS panel origin; HTTPS termination may be handled by a reverse proxy. `HOST` defaults to loopback; set `HOST=0.0.0.0` in a container. `PORT` defaults to 8780. Local development defaults to host `http://127.0.0.1:5173` and declaration URL `https://panel.example`; configure a real public URL before approval. The manifest is also available at `/manifest.json`. The default CLI serves no provider credentials or authenticated API endpoints.
 
 Register the generated external declaration (`github-panel`) for instance approval, then grant board panel rendering and explicitly check the separate signal read consent checkbox. Rendering consent alone cannot read signals. This companion panel requires an existing authorized provider connection, eligible board resource bindings and the native provider read/resource grants, in addition to the external panel read consent. External panel consent never creates provider authority. Provider onboarding remains a host responsibility. The host must support `session.request('signals.list', {provider: 'github', after?: cursor})` and supply its actual React, Button, Badge, Input and mount widget exports. The SDK imports from `/sdk/index.mjs`; the server exposes the installed package file with public module CORS for an opaque iframe. Host styling and theme follow automatically through the SDK.
 
@@ -20,3 +64,114 @@ Unsupported mutations: PR merge, deployment execution, issue resolution, card cr
 Public static assets permit CORS `*` without credentials. CSP frame ancestors is limited to the configured host. Exact route allowlisting excludes arbitrary files. Deploy this repository independently with its package tarball and lockfile; run `npm ci` before starting.
 
 Local browser verification used the real compiled host widget module and opaque iframe lifecycle with disposable sample inbox records. It confirmed dark theme changes, filters, and denial clearing prior data; it did not exercise a deployed account or real provider ingestion.
+
+Panel declaration 0.1.1 explicitly limits signal_sources to github. Approve the newer declaration and review board signal consent again on SDK 0.2.20 hosts. The declaration neither grants provider account access nor installs an adapter. Inbox state remains independent from app-owned cards and HITL.
+
+
+## Serving an optional workflow declaration
+
+The default HTTP `/manifest.json` and `--manifest` output remain the read-only
+signal inbox profile. Use `--workflow-cards` for both generation and service
+startup when offering app-owned workflow cards:
+
+```sh
+npm run manifest --silent -- --workflow-cards > workflow-manifest.json
+npm start -- --workflow-cards
+```
+
+Programmatic callers use `panelServer(config, { workflowCards: true })`. The
+HTTP declaration is generated at startup from that same explicit profile.
+These flags offer capabilities for approval; they do not register an app,
+create a card, grant consent, connect a provider or activate external actions.
+
+GitHub may additionally use `--interactions` together with `--workflow-cards`
+for both generation and startup. The PR interaction declaration remains
+optional and disabled by default; declaring choices does not execute them.
+
+## Explicit external check reads
+
+`provider-api.mjs` reads the configured repository metadata first and verifies its
+immutable numeric ID and full name before requesting a specific check run. It
+uses GET only, an exact server-configured HTTPS API origin, an explicit API
+version (default `2022-11-28` for existing compatibility), no redirects and a
+15-second deadline. Each decoded response is limited to 1 MiB. See the official
+[Checks API](https://docs.github.com/en/rest/checks/runs).
+
+`observeCheck` in `signals.mjs` requires a trusted current board/resource mapping,
+server credentials and an awaited durable `saveEnvelope` callback. Only completed
+checks with finite conclusions, an explicit completed timestamp and a full commit
+SHA are normalized. Output text, annotations, URLs and diagnostics do not leave
+the provider. Neutral/skipped/stale/action-required/timed-out conclusions are
+preserved and mapped to unknown rather than inferred success or approval.
+The exact envelope is saved before signed submission; an unknown result is
+reconciled with that same envelope, never an automatic provider re-read or retry.
+This event identity differs from a webhook delivery ID; existing native webhook
+histories are retained and never silently re-keyed or deduplicated into it.
+
+`--publish-signals` independently offers schema 2 app version 0.2.1. It requests
+signal publication consent but no card creation unless `--workflow-cards` is also
+selected. The panel selects `github` or `github-panel` with separate SDK-owned
+source lifetimes. SDK packages are pinned at panel 0.2.3 and server 0.1.2.
+The flag offers a contract, not a running worker, credentials or consent.
+
+Tests exercise local HTTP and provider/host doubles. Actual GitHub credentials,
+native persistence readback, webhook ingress migration, durable service deployment
+and browser acceptance remain gates before any host provider path can be removed.
+
+Signal publication requires a native signal_uid and boolean duplicate receipt.
+An HTTP success without that receipt is an unknown outcome; preserve the saved
+envelope and reconcile before explicit replay. No automatic retry is performed.
+
+## Durable one-shot observation CLI
+
+Run `node observation.mjs observe CONFIG FILE` for one explicitly configured
+resource. CONFIG includes exact HTTPS `hostOrigin`, `providerOrigin` and the
+`scope` fields required by the provider reader plus `boardUID`, `resourceUID`,
+`appRevision` and `bindingRevision`. Server credentials are environment-only:
+`LANGBOARD_APP_TOKEN` and `GITHUB_READ_TOKEN`. No polling is started.
+
+The SDK 0.1.3 store exclusively creates an owner-only, size-limited FILE and
+syncs it before publication. `node observation.mjs resend CONFIG FILE` loads
+the same batch without reading the provider. It rejects changed host/provider
+origins or mapping revisions and stops at the first rejected/unknown receipt.
+Partial batches replay accepted event identities for native deduplication.
+Keep the file until native readback resolves all receipts; never replace an
+unknown event with a new observation. CLI output contains receipt IDs only.
+Local tests establish this recovery boundary, not live provider or deployment
+acceptance.
+
+## Installable static package
+
+Run `npm ci` and `npm run package` with Node 22 and Python 3.12 or newer.
+The command uses the pinned standalone SDK wheel to build a deterministic ZIP in `dist/`.
+Publish that ZIP as a release asset whose stable tag matches the declaration version.
+The ZIP installs only public panel assets and the declaration. Server executors and credentials
+remain in a separately operated service. The installed host provides its verified UI origin;
+board permissions and resource selection remain explicit after central installation.
+
+
+## Packaging optional profiles
+
+The default `npm run package -- /tmp/panel.zip` remains the read-only static
+panel. To offer workflow cards and explicit signal publication in a reviewed ZIP:
+
+```sh
+PUBLIC_URL=https://app.example.test npm run package -- /tmp/workflow-panel.zip --workflow-cards --publish-signals
+```
+
+GitHub/GlitchTip interaction declarations additionally require `--interactions`
+and `--workflow-cards`. Omit those flags when that feature is not offered.
+
+The supplied HTTPS `PUBLIC_URL` is the separately deployed app service's data
+origin. It is required for optional profiles and must not be a placeholder in
+an installed production declaration. The host serves the static panel after
+installation; server executors are still deployed separately. A selected profile
+offers capabilities for review and does not grant them, connect a provider,
+create cards or turn on workflow transitions/archive synchronization. Unknown
+flags and incomplete profiles fail instead of silently producing a read-only ZIP.
+
+All three reference apps reuse `@langboard/app-server/packaging` 0.1.6 and the
+pinned Python SDK 0.2.37 archive validator. No Langboard core checkout is needed.
+The ZIP contains portable panel SDK assets and themed icons, not the server,
+Python wheel, provider credentials or private configuration. Host and app tests
+must still verify the installed profile, current grants and actual provider flow.
